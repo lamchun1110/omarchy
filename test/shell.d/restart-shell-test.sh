@@ -255,7 +255,9 @@ pass "restart waits for notification readiness before one-time update hooks"
 # eventually becomes IPC-responsive.
 ready_count="$test_tmp/ready-count"
 printf '0\n' >"$ready_count"
-printf '303\n' >"$restart_state"
+sleep 30 &
+restart_pid_one=$!
+printf '%s\n' "$restart_pid_one" >"$restart_state"
 
 PATH="$restart_bin:$PATH" \
 OMARCHY_PATH="$restart_root" \
@@ -271,6 +273,8 @@ OMARCHY_TEST_QS_READY_COUNT="$ready_count" \
   timeout 8 "$ROOT/bin/omarchy-restart-shell" || fail "restart waits for a slow shell to become ready"
 
 (( $(<"$ready_count") >= 25 )) || fail "restart keeps polling beyond the old readiness budget"
+wait "$restart_pid_one" 2>/dev/null || true
+restart_pid_one=""
 pass "restart waits for a slow shell to become ready"
 
 : >"$restart_log"

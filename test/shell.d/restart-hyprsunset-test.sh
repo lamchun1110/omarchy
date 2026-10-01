@@ -16,6 +16,12 @@ printf 'pkill:%s\n' "$*" >>"$OMARCHY_TEST_CALL_LOG"
 exit "${OMARCHY_TEST_PKILL_STATUS:-0}"
 SH
 
+cat >"$test_bin/pgrep" <<'SH'
+#!/bin/bash
+printf 'pgrep:%s\n' "$*" >>"$OMARCHY_TEST_CALL_LOG"
+(( $(grep -c '^pgrep:' "$OMARCHY_TEST_CALL_LOG") <= ${OMARCHY_TEST_PGREP_ALIVE:-0} ))
+SH
+
 cat >"$test_bin/setsid" <<'SH'
 #!/bin/bash
 printf 'setsid:%s\n' "$*" >>"$OMARCHY_TEST_CALL_LOG"
@@ -33,6 +39,7 @@ run_restart() {
   PATH="$test_bin:$PATH" \
   OMARCHY_TEST_CALL_LOG="$call_log" \
   OMARCHY_TEST_PKILL_STATUS="$1" \
+  OMARCHY_TEST_PGREP_ALIVE="${2:-0}" \
     "$ROOT/bin/omarchy-restart-hyprsunset"
 
   for _ in {1..50}; do
@@ -55,3 +62,9 @@ run_restart 1
 grep -Fx 'setsid:hyprsunset' "$call_log" >/dev/null ||
   fail "hyprsunset starts when no previous process exists" "$(cat "$call_log")"
 pass "hyprsunset starts even when no previous process exists"
+
+run_restart 0 2
+calls=$(cat "$call_log")
+[[ $calls == $'pkill:-x hyprsunset\npgrep:-x hyprsunset\npgrep:-x hyprsunset\npgrep:-x hyprsunset\nsetsid:hyprsunset' ]] ||
+  fail "hyprsunset restart waits for the old process to exit before launching" "$calls"
+pass "hyprsunset restart waits for the old process to exit before launching"
